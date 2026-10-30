@@ -224,6 +224,18 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.header-actions .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+.header-actions .btn-label {
+  display: inline-block;
 }
 
 .pill-btn {
@@ -239,6 +251,7 @@ body {
   font-weight: 500;
   cursor: pointer;
   transition: var(--transition);
+  white-space: nowrap;
 }
 
 .pill-btn:hover, .pill-btn.active {
@@ -1379,4 +1392,141 @@ body {
   width: 100%;
   border-radius: 6px;
   transition: height 0.4s ease;
+}
+
+/* ================= RESPONSIVE MOBILE STYLES ================= */
+
+@media (max-width: 992px) {
+  .header {
+    padding: 0.65rem 1rem;
+  }
+  .search-wrapper {
+    max-width: 320px;
+    min-width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .header-container {
+    gap: 0.5rem;
+  }
+
+  .logo-group {
+    font-size: 1.1rem;
+    gap: 0.4rem;
+  }
+
+  .logo-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* Su mobile la barra di ricerca occupa tutta la larghezza in una riga dedicata */
+  .search-wrapper {
+    order: 3;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+    margin-top: 0.2rem;
+  }
+
+  .header-actions {
+    gap: 0.35rem;
+    margin-left: auto;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  .header-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Nasconde le etichette di testo dei pulsanti per mostrare solo le icone su schermi piccoli */
+  .header-actions .btn-label {
+    display: none;
+  }
+
+  .pill-btn {
+    padding: 0.35rem 0.55rem;
+    min-width: 34px;
+    height: 34px;
+    justify-content: center;
+    font-size: 0.82rem;
+    gap: 0;
+    border-radius: 17px;
+  }
+
+  .pill-btn svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .action-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0.3rem;
+  }
+
+  /* Su smartphone lo schermo intero non serve / non è supportato da iOS Safari */
+  #fullscreenBtn {
+    display: none !important;
+  }
+
+  .saved-locations-bar {
+    padding: 0.4rem 0.75rem;
+  }
+
+  .main-content {
+    padding: 0.75rem 0.5rem;
+    gap: 1rem;
+  }
+
+  .radar-container {
+    height: 420px;
+  }
+
+  .radar-controls-panel {
+    padding: 0.5rem 0.6rem;
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+  }
+
+  .radar-top-row {
+    gap: 0.35rem;
+  }
+
+  .radar-legend {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .header {
+    padding: 0.4rem 0.5rem;
+  }
+
+  .header-actions {
+    gap: 0.25rem;
+  }
+
+  .pill-btn {
+    padding: 0.3rem 0.45rem;
+    min-width: 30px;
+    height: 30px;
+    font-size: 0.75rem;
+  }
+
+  .action-btn {
+    width: 30px;
+    height: 30px;
+  }
 }
