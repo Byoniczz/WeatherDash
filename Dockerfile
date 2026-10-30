@@ -18,10 +18,7 @@ COPY server.js ./
 COPY public/ ./public/
 
 # Crea cartella dati persistente per volumi Docker
-RUN mkdir -p /app/data && chown -R node:node /app
-
-# Switch a utente non-root per sicurezza
-USER node
+RUN mkdir -p /app/data
 
 # Porta esposta
 EXPOSE 3000

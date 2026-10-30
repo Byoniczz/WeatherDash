@@ -111,16 +111,13 @@ services:
       - NODE_ENV=production
       - PORT=3000
     volumes:
-      # Named volume Docker (elimina ogni problema di permessi utente non-root)
-      - weatherdash_data:/app/data
+      # Cartella fisica sul server host per consultare/salvare direttamente i file di configurazione
+      - /docker/weatherdash:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-
-volumes:
-  weatherdash_data:
 ```
 4. Clicca su **Deploy the stack**.
 
