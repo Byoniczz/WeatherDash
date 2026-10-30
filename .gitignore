@@ -1,0 +1,22 @@
+# Dipendenze Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dati utente & segreti (Token Telegram, Chat ID, posizioni salvate)
+data/*
+!data/.gitkeep
+!data/settings.example.json
+
+# File di ambiente
+.env
+.env.*
+*.env
+
+# File di sistema e IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

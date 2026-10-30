@@ -1,0 +1,26 @@
+{
+  "name": "weatherdash",
+  "version": "1.0.0",
+  "description": "Dashboard meteo moderno, interattivo e completo con radar pioggia, qualità dell'aria, previsioni orarie e settimanali, pronto per Docker.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "weather",
+    "meteo",
+    "radar",
+    "rainviewer",
+    "air-quality",
+    "open-meteo",
+    "docker",
+    "dashboard"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WeatherDash • Stazione Meteo e Radar</title>
+  <meta name="description" content="Dashboard meteo avanzata con radar precipitazioni in tempo reale, qualità dell'aria, previsioni orarie e settimanali.">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0284c7">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Canvas Effetti Atmosferici Dinamici (Pioggia, Neve, Lampi, Stelle, Sole) -->
+  <canvas id="weatherCanvas" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 2;"></canvas>
+
+  <!-- HEADER -->
+  <header class="header" style="position: relative; z-index: 1000;">
+    <div class="header-container">
+      
+      <!-- Brand Logo -->
+      <a href="/" class="logo-group">
+        <img src="/favicon.svg" alt="WeatherDash Logo" class="logo-icon">
+        <span>Weather<span style="color: var(--accent);">Dash</span></span>
+      </a>
+
+      <!-- Address Search Bar -->
+      <div class="search-wrapper">
+        <div class="search-input-box">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted); margin-right: 4px;">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="addressSearchInput" placeholder="Cerca indirizzo, città o CAP (es. Milano, Roma, Napoli)..." autocomplete="off">
+          <button id="searchClearBtn" class="search-btn" title="Cancella" style="display: none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+          <button id="geoLocBtn" class="search-btn" title="Usa la mia posizione attuale">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></svg>
+          </button>
+        </div>
+        <!-- Dropdown risultati -->
+        <div id="searchResultsDropdown" class="search-results-dropdown"></div>
+      </div>
+
+      <!-- Action Controls -->
+      <div class="header-actions">
+        <button id="canvasEffectsToggleBtn" class="pill-btn active" title="Attiva/Disattiva effetti meteo animati (pioggia, neve, stelle)">
+          <span>✨ Effetti</span>
+        </button>
+
+        <button id="manageFavoritesBtn" class="pill-btn" title="Gestisci indirizzi salvati">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          <span>Indirizzi</span>
+        </button>
+
+        <button id="openSettingsBtn" class="pill-btn" title="Impostazioni (Telegram & Fotovoltaico)">
+          <span>⚙️ Setup</span>
+        </button>
+
+        <button id="unitToggleBtn" class="pill-btn" title="Cambia unità di temperatura">°C</button>
+
+        <button id="themeToggleBtn" class="action-btn" title="Cambia tema chiaro/scuro">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+
+        <button id="fullscreenBtn" class="action-btn" title="Schermo intero (Modalità TV/Dashboard)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        </button>
+
+        <button id="refreshBtn" class="action-btn" title="Aggiorna dati meteo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- SAVED LOCATIONS CHIPS BAR -->
+  <div class="saved-locations-bar">
+    <div class="saved-locations-container">
+      <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Preferiti:</span>
+      <div id="savedLocationsChips" style="display: flex; gap: 0.5rem; align-items: center;"></div>
+      <span id="lastUpdateBadge" style="margin-left: auto; font-size: 0.75rem; color: var(--text-muted);">In caricamento...</span>
+    </div>
+  </div>
+
+  <!-- MAIN CONTAINER -->
+  <main class="main-content" style="position: relative; z-index: 5;">
+
+    <!-- ALERT BANNER -->
+    <div id="alertBanner" class="weather-alert" style="display: none;">
+      <div class="weather-alert-content">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span id="alertText">Avviso meteo attivo</span>
+      </div>
+      <button onclick="document.getElementById('alertBanner').style.display='none'" class="action-btn" style="color: #fca5a5;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- TOP SECTION: CURRENT HERO + METRICS GRID -->
+    <div class="grid-top">
+      
+      <!-- Current Hero Card -->
+      <section class="card current-hero-card">
+        <div>
+          <div class="location-header">
+            <div>
+              <h1 id="locTitle" class="location-title">Roma</h1>
+              <div id="locSub" class="location-subtitle">Lazio, Italia</div>
+              <div id="climateAnomalyBadge" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); color: #38bdf8; padding: 0.15rem 0.5rem; border-radius: 12px; margin-top: 5px;">
+                📊 Calcolo anomalia climatica...
+              </div>
+            </div>
+            <button id="favToggleHeroBtn" class="fav-toggle-btn" title="Salva nei preferiti">☆</button>
+          </div>
+
+          <div class="weather-hero-body">
+            <div>
+              <div id="currentTemp" class="current-temp-large">--°C</div>
+              <div id="conditionText" class="current-condition-text">Caricamento...</div>
+              <div id="feelsLikeTemp" class="current-feels-like">Percepita --°C</div>
+            </div>
+            <div id="currentWeatherIcon" class="current-weather-icon-wrap"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="day-minmax-bar">
+            <span id="todayMin" style="color: #38bdf8;">Min: --°C</span>
+            <span id="todayMax" style="color: #f87171;">Max: --°C</span>
+          </div>
+
+          <div class="day-progress-wrap">
+            <div id="sunProgressLabel" style="display: flex; justify-content: space-between;">
+              <span>Alba: --:--</span>
+              <span>Tramonto: --:--</span>
+            </div>
+            <div class="progress-track">
+              <div id="sunProgressFill" class="progress-fill" style="width: 50%;"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Key Metrics Detailed Grid -->
+      <section class="card">
+        <div class="section-header">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <span>Dettagli e Condizioni Attuali</span>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          
+          <!-- Precipitazioni -->
+          <div class="metric-card">
+            <div class="metric-header">
+              <span>Precipitazioni</span>
+              <svg class="metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+            </div>
+            <div id="metricPrecip" class="metric-value">0.0 mm</div>
+            <div id="metricPrecipSub" class="metric-sub">Oggi: 0.0 mm (0% prob.)</div>
+          </div>
+
+          <!-- Vento & Raffiche -->
+          <div class="metric-card">
+            <div class="metric-header">
+              <span>Vento e Raffiche</span>
+              <div class="compass-ring">
+                <svg id="windArrow" class="compass-arrow" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>
+              </div>
+            </div>
+            <div id="metricWind" class="metric-value">-- km/h</div>
+            <div class="metric-sub">
+              <span id="metricGusts">Raffiche: --</span> • <span id="windDirText">--°</span>
+            </div>
+          </div>
+
+          <!-- Umidità & Rugiada -->
+          <div class="metric-card">
+            <div class="metric-header">
+              <span>Umidità Relativa</span>
+              <svg class="metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M4.93 4.93l14.14 14.14M2 12h20M4.93 19.07l14.14-14.14"/></svg>
+            </div>
+            <div id="metricHumidity" class="metric-value">--%</div>
+            <div id="metricDewPoint" class="metric-sub">Punto rugiada: --°C</div>
+          </div>
+
+          <!-- Pressione Barometrica -->
+          <div class="metric-card">
+            <div class="metric-header">
+              <span>Pressione Barometrica</span>
+              <svg class="metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m14 14-4-4"/></svg>
+            </div>
+            <div id="metricPressure" class="metric-value">-- hPa</div>
+            <div id="metricPressureTrend" class="metric-sub">Stabile</div>
+          </div>
+
+          <!-- Indice UV -->
+          <div class="metric-card">
+            <div class="metric-header">
+              <span>Indice UV</span>
+              <span id="uvBadge" style="font-weight: 700; font-size: 0.75rem;">Basso</span>
+            </div>
+            <div id="metricUV" class="metric-value">0.0</div>
+            <div id="uvAdvice" class="metric-sub">Nessuna protezione richiesta</div>
+          </div>
+
+          <!-- Visibilità -->
+          <div class="metric-card">
+            <div class="metric-header">
+              <span>Visibilità</span>
+              <svg class="metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <div id="metricVisibility" class="metric-value">-- km</div>
+            <div id="metricVisQuality" class="metric-sub">Ottima visibilità</div>
+          </div>
+
+          <!-- Luna e Notte -->
+          <div class="metric-card">
+            <div class="metric-header">
+              <span>Fase Lunare</span>
+              <svg class="metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </div>
+            <div id="metricMoon" class="metric-value" style="font-size: 1.15rem;">Caricamento...</div>
+            <div id="metricMoonSub" class="metric-sub">Illuminazione: --%</div>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+
+    <!-- LIFE INDICES & SMART INSIGHTS -->
+    <section class="card">
+      <div class="section-header">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          <span>Indici Pratici & Vita Quotidiana</span>
+        </div>
+      </div>
+
+      <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));">
+        
+        <!-- Stendibiancheria -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <span>🧺 Asciugatura Bucato</span>
+            <span id="laundryBadge" style="font-size: 0.75rem; font-weight: 700;">--</span>
+          </div>
+          <div id="laundryTime" class="metric-value">--</div>
+          <div id="laundryDesc" class="metric-sub">Calcolo tempo asciugatura in corso...</div>
+        </div>
+
+        <!-- Lavaggio Auto -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <span>🚗 Lavaggio Auto</span>
+            <span id="carWashBadge" style="font-size: 0.75rem; font-weight: 700;">--</span>
+          </div>
+          <div id="carWashStatus" class="metric-value" style="font-size: 1.15rem;">Analisi Meteo</div>
+          <div id="carWashDesc" class="metric-sub">Verifica piogge e polveri sahariane...</div>
+        </div>
+
+        <!-- Sport Outdoor -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <span>🏃 Miglior Orario Sport</span>
+            <svg class="metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div id="sportTime" class="metric-value" style="font-size: 1.15rem;">--:-- - --:--</div>
+          <div id="sportDesc" class="metric-sub">Fascia oraria ideale per running o bici.</div>
+        </div>
+
+        <!-- Notte Stellata / Astrofili -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <span>🔭 Visione Stelle</span>
+            <span id="astroBadge" style="font-size: 0.75rem; font-weight: 700;">--</span>
+          </div>
+          <div id="astroScore" class="metric-value">--%</div>
+          <div id="astroDesc" class="metric-sub">Limpidezza cielo e fase lunare stasera.</div>
+        </div>
+
+        <!-- Fotovoltaico / Solare -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <span>⚡ Stima Fotovoltaico</span>
+            <button id="openSolarSettingsBtn" class="action-btn" title="Configura kWp tetto" style="padding: 2px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+          </div>
+          <div id="solarKwhToday" class="metric-value" style="color: #fbbf24;">-- kWh</div>
+          <div id="solarKwhTomorrow" class="metric-sub">Previsti domani: -- kWh</div>
+          <div id="solarSavings" style="font-size: 0.75rem; color: #10b981; font-weight: 600; margin-top: 2px;">Risparmio stimato: --</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- RADAR PRECIPITAZIONI INTERATTIVO -->
+    <section class="card" style="padding: 1rem;">
+      <div class="section-header">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/></svg>
+          <span>Radar Precipitazioni, Nubi & Webcam Live</span>
+        </div>
+        <span style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.3rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Clicca o trascina il puntatore per cambiare punto
+        </span>
+      </div>
+
+      <div class="radar-container">
+        <!-- Badge posizione visibile su qualsiasi mappa -->
+        <div id="activeLocationMapBadge" style="position: absolute; top: 12px; left: 12px; z-index: 550; background: rgba(17, 24, 39, 0.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 0.35rem 0.75rem; border-radius: 20px; font-size: 0.8rem; box-shadow: 0 4px 14px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 0.35rem; pointer-events: none;">
+          📍 <strong id="mapBadgeLocationName">Roma</strong> <span id="mapBadgeCoords" style="color: var(--text-muted); font-size: 0.75rem;">(41.89°, 12.51°)</span>
+        </div>
+
+        <!-- Leaflet Map Container -->
+        <div id="radarMap"></div>
+        <!-- Iframe Mappa Proiezione Futura & Satellite IR & Webcam -->
+        <iframe id="futureRadarFrame" style="display: none; width: 100%; height: 100%; border: none; background: #111827;" allowfullscreen></iframe>
+
+        <!-- Radar Legend -->
+        <div id="radarLegend" class="radar-legend" style="top: 52px;">
+          <span>Intensità Precipitazione (Pioggia / Neve)</span>
+          <div class="radar-legend-bar"></div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.65rem; margin-top: 2px;">
+            <span>Debole</span>
+            <span>Moderata</span>
+            <span>Intensa</span>
+            <span>Grandine</span>
+          </div>
+        </div>
+
+        <!-- Layer & Basemap Switcher Toolbar -->
+        <div class="radar-map-toolbar">
+          <select id="radarTypeSelect" class="pill-btn" style="background: rgba(17, 24, 39, 0.85); outline: none;">
+            <option value="radar">🌧️ Radar In Tempo Reale (Ultime 2h)</option>
+            <option value="future">🔮 Proiezione Pioggia Futura (Mappa ECMWF)</option>
+            <option value="satellite">🛰️ Satellite Nubi & IR (In Tempo Reale)</option>
+            <option value="webcams">📷 Webcam Live della Zona</option>
+          </select>
+          <select id="basemapSelect" class="pill-btn" style="background: rgba(17, 24, 39, 0.85); outline: none;">
+            <option value="dark">Mappa Scura (CARTO)</option>
+            <option value="voyager">Mappa Voyager (Colorata)</option>
+            <option value="osm">Mappa Stradale (OSM)</option>
+            <option value="satellite">Satellite Terreno</option>
+            <option value="light">Mappa Chiara (CARTO)</option>
+          </select>
+        </div>
+
+        <!-- Radar Controls Bottom Panel -->
+        <div id="radarControlsPanel" class="radar-controls-panel">
+          <div class="radar-top-row">
+            <div class="radar-playback-btns">
+              <button id="radarPrevBtn" class="radar-btn" title="Frame precedente">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <button id="radarPlayBtn" class="radar-btn play-btn" title="Avvia/Ferma animazione">
+                <span id="radarPlayIcon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </span>
+              </button>
+              <button id="radarNextBtn" class="radar-btn" title="Frame successivo">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
+
+            <div class="radar-time-info">
+              <span id="radarBadge" class="radar-badge now">Attuale</span>
+              <span id="radarTimeText" style="font-size: 1rem; color: var(--text-primary);">--:--</span>
+            </div>
+          </div>
+
+          <div class="radar-slider-wrap">
+            <span style="font-size: 0.75rem; color: var(--text-muted);">-2h</span>
+            <input type="range" id="radarSlider" class="radar-timeline-slider" min="0" max="10" value="10">
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Adesso</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Nowcast Timeline a 15 Minuti (Proiezione a Breve Termine) -->
+      <div id="nowcastContainer" class="nowcast-widget" style="margin-top: 0.85rem; padding: 0.85rem 1rem; background: var(--card-bg-solid); border: 1px solid var(--card-border); border-radius: var(--radius-md);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.9rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent);"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Proiezione Precipitazioni Quarto d'Ora per Quarto d'Ora (Prossime 6 Ore)</span>
+          </div>
+          <div id="nowcastSummaryBadge" class="radar-badge now" style="font-size: 0.75rem;">Verifica in corso...</div>
+        </div>
+        <div id="nowcastTimeline" class="nowcast-timeline-track" style="display: flex; gap: 0.35rem; overflow-x: auto; padding-bottom: 4px;">
+          <!-- Barre generate dinamicamente ogni 15 minuti -->
+        </div>
+      </div>
+
+      <!-- Galleria Webcam Live (Visibile in modalità Webcam) -->
+      <div id="webcamGalleryContainer" class="webcam-gallery-container" style="display: none;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.9rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent);"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+            <span>Webcam Live Attorno alla Posizione</span>
+            <span id="webcamCountBadge" style="font-size: 0.75rem; background: rgba(56, 189, 248, 0.15); color: var(--accent); padding: 0.1rem 0.45rem; border-radius: 10px;">--</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <a id="windyWebcamsLink" href="https://www.windy.com/-Webcams/webcams" target="_blank" rel="noopener" class="pill-btn" style="text-decoration: none; font-size: 0.75rem; background: #0284c7; color: #fff;">
+              <span>🌐 Apri Tutte su Mappa Windy →</span>
+            </a>
+          </div>
+        </div>
+
+        <div id="webcamCardsScroll" class="webcam-cards-scroll">
+          <!-- Card webcam generate dinamicamente con anteprima fotogramma -->
+        </div>
+
+        <div id="webcamApiKeyNotice" style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+          <span>💡 Vuoi abilitare centinaia di webcam mondiali in tempo reale? Puoi inserire la tua chiave gratuita Windy nelle impostazioni.</span>
+          <button onclick="window.weatherApp && window.weatherApp.openSettingsModal()" class="pill-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">⚙️ Setup Chiave Windy</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PREVISIONE RISCHIO GRANDINE & TEMPORALI SEVERI -->
+    <section class="card" id="hailRiskSection">
+      <div class="section-header">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #38bdf8;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span>🧊 Previsione Rischio Grandine & Temporali Severi</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.4rem;">
+          <span id="hailRiskBadge" class="radar-badge now" style="font-size: 0.78rem; font-weight: 700; border: 1px solid transparent;">Calcolo...</span>
+          <button onclick="window.weatherApp && window.weatherApp.openSettingsModal()" class="action-btn" title="Configura notifiche grandine Telegram" style="padding: 2px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; align-items: center; margin-bottom: 0.85rem;">
+        
+        <!-- Hail Score Box -->
+        <div style="display: flex; align-items: center; gap: 1rem; background: rgba(255, 255, 255, 0.02); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--card-border);">
+          <div style="text-align: center; min-width: 80px;">
+            <div id="hailRiskVal" style="font-size: 2.2rem; font-weight: 800; line-height: 1; color: #10b981;">0%</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 3px;">Rischio Max</div>
+          </div>
+          <div>
+            <div id="hailRiskLevel" style="font-weight: 700; font-size: 1.05rem; margin-bottom: 2px;">Analisi in corso...</div>
+            <div style="display: flex; gap: 0.6rem; font-size: 0.75rem; color: var(--text-secondary);">
+              <span id="hailPeakTime">Picco: --:--</span>
+              <span>•</span>
+              <span id="hailCapeVal">CAPE: -- J/kg</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hail Advice Box -->
+        <div style="background: rgba(255, 255, 255, 0.02); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--card-border); font-size: 0.82rem; color: var(--text-primary); line-height: 1.4;">
+          <div style="font-weight: 600; font-size: 0.75rem; color: var(--accent); text-transform: uppercase; margin-bottom: 2px;">🚗 Protezione Veicoli & Colture:</div>
+          <div id="hailAdviceText">Verifica in corso delle condizioni convettive...</div>
+        </div>
+
+      </div>
+
+      <!-- Timeline oraria rischio grandine (24 ore) -->
+      <div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem; display: flex; justify-content: space-between;">
+          <span>Evoluzione Rischio Grandine Orario (Prossime 24 Ore)</span>
+          <span style="font-size: 0.7rem;">Modello Termodinamico CAPE + Lifted Index</span>
+        </div>
+        <div id="hailTimelineTrack" style="display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 4px; align-items: flex-end;">
+          <!-- Barre orarie generate dinamicamente -->
+        </div>
+      </div>
+    </section>
+
+    <!-- QUALITA' DELL'ARIA (AIR QUALITY SECTION) -->
+    <section class="card">
+      <div class="section-header">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><path d="M7 15a3 3 0 0 1 0-6"/></svg>
+          <span>Qualità dell'Aria & Inquinanti Atmosferici</span>
+        </div>
+      </div>
+
+      <div class="aqi-container">
+        <!-- Summary Score Circle -->
+        <div class="aqi-summary-card">
+          <div id="aqiCircle" class="aqi-score-circle">
+            <div id="aqiScoreVal" class="aqi-score-val">--</div>
+            <div class="aqi-score-label">Indice AQI</div>
+          </div>
+          <div id="aqiLevelText" class="aqi-level-text">Caricamento...</div>
+          <p id="aqiAdviceText" class="aqi-advice-text">Verifica in corso della composizione dell'aria...</p>
+        </div>
+
+        <!-- Pollutants Grid -->
+        <div class="pollutants-grid">
+          
+          <div class="pollutant-card">
+            <div class="pollutant-name">PM2.5 (Fine)</div>
+            <div id="polPM25Val" class="pollutant-val">-- µg/m³</div>
+            <div class="pollutant-bar">
+              <div id="polPM25Bar" class="pollutant-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="pollutant-card">
+            <div class="pollutant-name">PM10 (Grossolano)</div>
+            <div id="polPM10Val" class="pollutant-val">-- µg/m³</div>
+            <div class="pollutant-bar">
+              <div id="polPM10Bar" class="pollutant-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="pollutant-card">
+            <div class="pollutant-name">Biossido Azoto (NO₂)</div>
+            <div id="polNO2Val" class="pollutant-val">-- µg/m³</div>
+            <div class="pollutant-bar">
+              <div id="polNO2Bar" class="pollutant-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="pollutant-card">
+            <div class="pollutant-name">Ozono (O₃)</div>
+            <div id="polO3Val" class="pollutant-val">-- µg/m³</div>
+            <div class="pollutant-bar">
+              <div id="polO3Bar" class="pollutant-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="pollutant-card">
+            <div class="pollutant-name">Biossido Zolfo (SO₂)</div>
+            <div id="polSO2Val" class="pollutant-val">-- µg/m³</div>
+            <div class="pollutant-bar">
+              <div id="polSO2Bar" class="pollutant-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="pollutant-card">
+            <div class="pollutant-name">Monossido Carb. (CO)</div>
+            <div id="polCOVal" class="pollutant-val">-- µg/m³</div>
+            <div class="pollutant-bar">
+              <div id="polCOBar" class="pollutant-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="pollutant-card">
+            <div class="pollutant-name">Polveri Desertiche (Dust)</div>
+            <div id="polDustVal" class="pollutant-val">-- µg/m³</div>
+            <div class="pollutant-bar">
+              <div id="polDustBar" class="pollutant-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- MONITORAGGIO POLLINI & ALLERGENI -->
+    <section class="card">
+      <div class="section-header">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22v-8"/><path d="M9 14c-1.5-2-1.5-5 0-7 2-2.5 4-2.5 6 0 1.5 2 1.5 5 0 7"/><path d="M8 11s-2-1-3-1-3 1-3 3 2 3 4 2"/><path d="M16 11s2-1 3-1 3 1 3 3-2 3-4 2"/></svg>
+          <span>Monitoraggio Pollini & Allergeni (Dati Europei)</span>
+        </div>
+        <div id="pollenSummaryBadge" class="radar-badge now">Verifica in corso...</div>
+      </div>
+
+      <div id="pollenGrid" class="pollutants-grid">
+        <!-- Generato dinamicamente per le 6 specie di pollini -->
+      </div>
+    </section>
+
+    <!-- PREVISIONI ORARIE (HOURLY TIMELINE & INTERACTIVE CHARTS) -->
+    <section class="card">
+      <div class="section-header">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Previsioni Orarie Dettagliate (Prossime 24-36 Ore)</span>
+        </div>
+
+        <!-- Chart metric tabs -->
+        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+          <button class="pill-btn chart-tab-btn active" data-mode="temp">🌡️ Temperatura</button>
+          <button class="pill-btn chart-tab-btn" data-mode="precip">🌧️ Pioggia (mm / %)</button>
+          <button class="pill-btn chart-tab-btn" data-mode="wind">💨 Vento e Raffiche</button>
+          <button class="pill-btn chart-tab-btn" data-mode="uv">☀️ Indice UV</button>
+        </div>
+      </div>
+
+      <!-- Interactive Chart.js graph -->
+      <div class="chart-container">
+        <canvas id="hourlyChartCanvas"></canvas>
+      </div>
+
+      <!-- Horizontal Cards Slider -->
+      <div style="margin-top: 1rem; border-top: 1px solid var(--card-border); padding-top: 0.75rem;">
+        <div id="hourlyCardsContainer" class="hourly-scroll-container">
+          <!-- Card orarie generate dinamicamente -->
+        </div>
+      </div>
+    </section>
+
+    <!-- PREVISIONI GIORNALIERE A 7-14 GIORNI -->
+    <section class="card">
+      <div class="section-header">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>Previsioni Giornaliere a 14 Giorni</span>
+        </div>
+      </div>
+
+      <div id="dailyForecastList" class="daily-forecast-list">
+        <!-- Righe giornaliere generate dinamicamente -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL GESTIONE PREFERITI / INDIRIZZI -->
+  <div id="favoritesModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Gestisci Indirizzi Salvati</h3>
+        <button id="closeFavoritesModalBtn" class="action-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">
+          Questi indirizzi vengono salvati sia sul tuo dispositivo che nel volume Docker del server. Puoi impostare la tua residenza principale come predefinita.
+        </p>
+        <div id="savedLocationsModalList" style="display: flex; flex-direction: column; gap: 0.6rem;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="pill-btn" onclick="document.getElementById('favoritesModal').classList.remove('active')">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL IMPOSTAZIONI: TELEGRAM, FOTOVOLTAICO & HOME ASSISTANT -->
+  <div id="settingsModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 540px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 0.4rem;">
+          <span>⚙️ Setup & Automazioni</span>
+        </h3>
+        <button id="closeSettingsModalBtn" class="action-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" style="gap: 1.25rem;">
+        
+        <!-- Telegram Section -->
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 0.85rem;">
+          <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem; color: #38bdf8; display: flex; align-items: center; gap: 0.4rem;">
+            <span>✈️ Bot Notifiche Telegram</span>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            Ricevi un avviso sul tuo smartphone 30 minuti prima che inizi a piovere o in caso di allerta grandine per <strong>tutti i tuoi indirizzi salvati nei preferiti</strong> (es. Casa, Ufficio, ecc.).
+          </p>
+
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div>
+              <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 2px;">Token Bot Telegram (@BotFather):</label>
+              <input type="text" id="settingTgToken" placeholder="es. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" style="width: 100%; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;">
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; color: var(--text-secondary); display: block; margin-bottom: 2px;">Chat ID Destinatario (o ID Canale):</label>
+              <input type="text" id="settingTgChatId" placeholder="es. 987654321" style="width: 100%; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;">
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.35rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <label style="font-size: 0.8rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                  <input type="checkbox" id="settingTgAlerts">
+                  <span>Attiva allerta pioggia imminente</span>
+                </label>
+                <button id="sendTgTestBtn" class="pill-btn" style="font-size: 0.75rem;">Invia Test</button>
+              </div>
+              <div>
+                <label style="font-size: 0.8rem; color: #ef4444; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                  <input type="checkbox" id="settingTgHailAlerts" checked>
+                  <span>🧊 Allerta Grandine immediata (se rischio >= 50%)</span>
+                </label>
+              </div>
+
+              <!-- Morning Briefing Toggle, Time & Instant Test -->
+              <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.5rem; margin-top: 0.35rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.4rem;">
+                  <label style="font-size: 0.8rem; color: #fbbf24; font-weight: 600; display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                    <input type="checkbox" id="settingTgBriefing" checked>
+                    <span>☕ Briefing Mattutino Completo (con tutti gli indici)</span>
+                  </label>
+                  <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    <span style="font-size: 0.75rem; color: var(--text-secondary);">Orario:</span>
+                    <input type="time" id="settingTgBriefingTime" value="07:30" style="padding: 0.2rem 0.4rem; border-radius: var(--radius-sm); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.8rem;">
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: flex-end; margin-top: 0.45rem;">
+                  <button id="sendTgBriefingBtn" class="pill-btn" style="font-size: 0.75rem; background: #d97706; color: #fff;">☕ Invia Briefing Adesso</button>
+                </div>
+                <div id="tgBriefingFeedback" style="font-size: 0.75rem; margin-top: 3px; display: none;"></div>
+              </div>
+            </div>
+            <div id="tgTestFeedback" style="font-size: 0.75rem; margin-top: 2px; display: none;"></div>
+          </div>
+        </div>
+
+        <!-- Windy Webcams API Key Section -->
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 0.85rem;">
+          <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem; color: #38bdf8; display: flex; align-items: center; gap: 0.4rem;">
+            <span>📷 Chiave API Windy Webcams (Opzionale)</span>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+            Inserisci la tua chiave API per sbloccare oltre 70.000 webcam mondiali direttamente sui marker della mappa e nella galleria fotogrammi live.
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+            <input type="text" id="settingWindyKey" placeholder="es. Inserisci la tua API Key Windy v3..." style="width: 100%; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;">
+            <div style="font-size: 0.72rem; color: var(--text-secondary);">
+              Puoi richiederla gratuitamente in pochi secondi su <a href="https://api.windy.com/" target="_blank" rel="noopener" style="color: var(--accent);">api.windy.com</a> (1.000 chiamate/giorno gratis).
+            </div>
+          </div>
+        </div>
+
+        <!-- Fotovoltaico Section -->
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 0.85rem;">
+          <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem; color: #fbbf24; display: flex; align-items: center; gap: 0.4rem;">
+            <span>⚡ Impianto Solare / Fotovoltaico</span>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+            Imposta la potenza del tuo impianto solare per calcolare i kWh giornalieri prodotti in base alla radiazione.
+          </p>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="number" id="settingSolarKwp" step="0.5" min="0.5" max="50" placeholder="4.0" style="width: 100px; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;">
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">kWp (Kilowatt picco)</span>
+          </div>
+        </div>
+
+        <!-- Home Assistant Section -->
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 0.85rem;">
+          <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem; color: #10b981; display: flex; align-items: center; gap: 0.4rem;">
+            <span>🏠 Integrazione Home Assistant</span>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.4rem;">
+            WeatherDash esporta tutti i sensori (temperatura, pioggia imminente, AQI, produzione solare) tramite un endpoint JSON REST pronto all'uso:
+          </p>
+          <code id="haEndpointUrl" style="display: block; padding: 0.4rem 0.6rem; background: rgba(0,0,0,0.3); border-radius: 4px; font-size: 0.75rem; color: var(--accent); word-break: break-all; margin-bottom: 0.5rem;">
+            http://localhost:3000/api/ha/sensors
+          </code>
+          <p style="font-size: 0.72rem; color: var(--text-secondary);">
+            Ti basta aggiungere in <code>configuration.yaml</code> una piattaforma REST per importare istantaneamente tutti i sensori.
+          </p>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button id="saveSettingsBtn" class="pill-btn active" style="background: var(--accent); color: #fff;">Salva Modifiche</button>
+        <button class="pill-btn" onclick="document.getElementById('settingsModal').classList.remove('active')">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer" style="position: relative; z-index: 5;">
+    <div style="max-width: 1440px; margin: 0 auto; display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">
+      <div><strong>WeatherDash</strong> • Stazione Meteo, Radar, Pollini & Smart Insights</div>
+      <div style="font-size: 0.8rem; color: var(--text-muted);">
+        Dati meteo, pollini & qualità aria: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> • Mappa radar: <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a> • Modelli futuri & Webcam: <a href="https://www.windy.com" target="_blank" rel="noopener">Windy</a> • Mappe © <a href="https://carto.com" target="_blank" rel="noopener">CARTO</a> & <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="/js/canvasEffects.js"></script>
+  <script src="/js/lifestyle.js"></script>
+  <script src="/js/pollen.js"></script>
+  <script src="/js/hail.js"></script>
+  <script src="/js/weather.js"></script>
+  <script src="/js/airquality.js"></script>
+  <script src="/js/radar.js"></script>
+  <script src="/js/charts.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

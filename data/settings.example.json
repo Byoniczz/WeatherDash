@@ -1,0 +1,11 @@
+{
+  "telegramBotToken": "",
+  "telegramChatId": "",
+  "telegramAlertsEnabled": false,
+  "telegramHailAlertsEnabled": true,
+  "telegramDailyDigest": true,
+  "telegramBriefingTime": "07:30",
+  "solarKwp": 4.0,
+  "windyWebcamApiKey": "",
+  "canvasEffectsEnabled": true
+}

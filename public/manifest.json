@@ -1,0 +1,16 @@
+{
+  "name": "WeatherDash",
+  "short_name": "WeatherDash",
+  "description": "Dashboard meteo moderno con radar pioggia, qualità aria e previsioni orarie/settimanali",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0284c7",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
