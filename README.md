@@ -106,7 +106,7 @@ services:
     container_name: weatherdash
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${HOST_PORT:-3005}:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000

@@ -4,16 +4,20 @@ services:
     container_name: weatherdash
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      # Modifica HOST_PORT nelle variabili ambiente di Portainer se desideri un'altra porta (default: 3005)
+      - "${HOST_PORT:-3005}:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
       - CARTO_API_KEY=cb1_4q2e_1_a29519003be17de1cdc0c026
     volumes:
-      # Volume persistente per salvare gli indirizzi preferiti e impostazioni
-      - ./data:/app/data
+      # Named volume Docker (persistente e gestito in modo sicuro da Docker)
+      - weatherdash_data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
+
+volumes:
+  weatherdash_data:
