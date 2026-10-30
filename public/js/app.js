@@ -254,6 +254,9 @@ class WeatherApp {
       // Aggiorna timestamp
       this.updateLastRefreshBadge();
 
+      // Allerte Meteo Ufficiali (Protezione Civile / MeteoAlarm)
+      this.fetchMeteoAlerts(location);
+
     } catch (err) {
       console.error('Errore caricamento dati meteo per posizione:', err);
       alert('Impossibile caricare i dati meteo. Verifica la connessione di rete.');
@@ -660,6 +663,53 @@ class WeatherApp {
     }
   }
 
+  // Allerte Ufficiali Protezione Civile (MeteoAlarm)
+  async fetchMeteoAlerts(location) {
+    const card = document.getElementById('meteoAlarmCard');
+    if (!card || !location) return;
+
+    try {
+      const q = new URLSearchParams({
+        lat: location.lat,
+        lon: location.lon,
+        country: location.country || '',
+        admin1: location.admin1 || ''
+      });
+      const res = await fetch(`/api/alerts?${q}`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+
+      if (data.hasAlert && data.alerts && data.alerts.length > 0) {
+        const top = data.alerts[0];
+        card.style.display = 'flex';
+        card.className = `meteoalarm-card ${top.level || 'yellow'}`;
+
+        const iconEl = document.getElementById('meteoAlarmIcon');
+        const badgeEl = document.getElementById('meteoAlarmBadge');
+        const regionEl = document.getElementById('meteoAlarmRegion');
+        const titleEl = document.getElementById('meteoAlarmTitle');
+        const timeEl = document.getElementById('meteoAlarmTime');
+
+        if (iconEl) iconEl.textContent = top.level === 'red' ? '🔴' : (top.level === 'orange' ? '🟠' : '🟡');
+        if (badgeEl) badgeEl.textContent = top.levelText || 'Allerta';
+        if (regionEl) regionEl.textContent = top.area || data.region || location.admin1 || '';
+        if (titleEl) titleEl.textContent = top.eventIt || top.event || 'Allerta Meteo';
+
+        if (timeEl) {
+          const fromStr = top.onset ? new Date(top.onset).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
+          const toStr = top.expires ? new Date(top.expires).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
+          const toDateStr = top.expires ? new Date(top.expires).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) : '';
+          timeEl.textContent = `Validità: dalle ${fromStr} alle ${toStr} (${toDateStr})`;
+        }
+      } else {
+        card.style.display = 'none';
+      }
+    } catch (e) {
+      console.warn('Errore lettura bollettino allerte:', e.message);
+      card.style.display = 'none';
+    }
+  }
+
   // Gestione Impostazioni (Telegram, Fotovoltaico, Home Assistant)
   async loadSettings() {
     try {
@@ -1013,6 +1063,15 @@ class WeatherApp {
       };
     }
   }
+}
+
+// Registrazione Service Worker per supporto PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then((reg) => console.log('WeatherDash Service Worker registrato:', reg.scope))
+      .catch((err) => console.warn('Errore registrazione Service Worker:', err));
+  });
 }
 
 // Inizializzazione al caricamento del DOM

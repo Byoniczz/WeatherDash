@@ -29,6 +29,11 @@ class WeatherRadar {
     // Webcams layer group
     this.webcamLayerGroup = null;
 
+    // Fulmini / Scariche elettriche in tempo reale
+    this.lightningLayerGroup = null;
+    this.lightningEnabled = localStorage.getItem('wd_lightning_enabled') !== 'false';
+    this.lightningTimer = null;
+
     // Carica eventuale chiave configurata dal server
     this.fetchConfig();
   }
@@ -168,6 +173,18 @@ class WeatherRadar {
       }
     } else if (this.layerType === 'webcams') {
       this.loadWebcams(lat, lon);
+    }
+
+    // Carica scariche elettriche fulmini
+    if (this.lightningEnabled) {
+      this.loadLightning(lat, lon);
+    }
+    if (!this.lightningTimer) {
+      this.lightningTimer = setInterval(() => {
+        if (this.lightningEnabled && !document.hidden && this.map) {
+          this.loadLightning(this.currentLat, this.currentLon);
+        }
+      }, 30000);
     }
 
     if (!this.map) return;
@@ -443,6 +460,25 @@ class WeatherRadar {
       };
     }
 
+    // Toggle scariche fulmini
+    const lightningBtn = document.getElementById('lightningToggleBtn');
+    if (lightningBtn) {
+      lightningBtn.classList.toggle('active', this.lightningEnabled);
+      lightningBtn.onclick = () => {
+        this.lightningEnabled = !this.lightningEnabled;
+        localStorage.setItem('wd_lightning_enabled', this.lightningEnabled ? 'true' : 'false');
+        lightningBtn.classList.toggle('active', this.lightningEnabled);
+        if (this.lightningLayerGroup && this.map) {
+          if (this.lightningEnabled) {
+            this.map.addLayer(this.lightningLayerGroup);
+            this.loadLightning(this.currentLat, this.currentLon);
+          } else {
+            this.map.removeLayer(this.lightningLayerGroup);
+          }
+        }
+      };
+    }
+
     // Basemap selector
     const basemapSelect = document.getElementById('basemapSelect');
     if (basemapSelect) {
@@ -616,6 +652,78 @@ class WeatherRadar {
       if (scrollContainer) {
         scrollContainer.innerHTML = `<div style="padding: 1rem; font-size: 0.8rem; color: var(--text-muted);">Impossibile recuperare le webcam al momento. Puoi comunque visualizzarle direttamente su <a href="https://www.windy.com/-Webcams/webcams" target="_blank" style="color: var(--accent);">Windy Webcams</a>.</div>`;
       }
+    }
+  }
+
+  async loadLightning(lat, lon) {
+    if (!this.map || !this.lightningEnabled) return;
+    if (!this.lightningLayerGroup) {
+      this.lightningLayerGroup = L.layerGroup().addTo(this.map);
+    }
+    this.lightningLayerGroup.clearLayers();
+
+    const countBadge = document.getElementById('lightningCountBadge');
+    if (countBadge) countBadge.textContent = '...';
+
+    try {
+      const res = await fetch(`/api/lightning?lat=${lat}&lon=${lon}&radius=200`);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      const list = data.strikes || [];
+      if (countBadge) {
+        countBadge.textContent = `${data.totalInRadius}`;
+        countBadge.title = `${data.totalInRadius} scariche rilevate negli ultimi 60 min nel raggio di 200 km`;
+        if (data.totalInRadius > 0) {
+          countBadge.style.background = 'rgba(234, 179, 8, 0.35)';
+          countBadge.style.color = '#fff';
+        } else {
+          countBadge.style.background = 'rgba(250, 204, 21, 0.15)';
+          countBadge.style.color = '#facc15';
+        }
+      }
+
+      list.forEach((s) => {
+        let color = '#fef08a';
+        let pulseClass = 'strike-pulse-recent';
+        if (s.ageMinutes > 30) {
+          color = '#a855f7';
+          pulseClass = 'strike-pulse-old';
+        } else if (s.ageMinutes > 15) {
+          color = '#f97316';
+          pulseClass = 'strike-pulse-mid';
+        } else if (s.ageMinutes > 5) {
+          color = '#facc15';
+          pulseClass = 'strike-pulse-fresh';
+        }
+
+        const strikeIcon = L.divIcon({
+          className: 'leaflet-strike-div-icon',
+          html: `<div class="strike-marker ${pulseClass}" style="background-color: ${color};" title="⚡ Scarica ${s.ageMinutes} min fa">⚡</div>`,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+
+        const marker = L.marker([s.lat, s.lon], { icon: strikeIcon, zIndexOffset: 5000 });
+        const timeStr = new Date(s.time).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        marker.bindPopup(`
+          <div style="font-family: sans-serif; color: #0f172a; padding: 4px; min-width: 170px;">
+            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; color: #b45309; display: flex; align-items: center; gap: 4px;">
+              ⚡ Scarica Elettrica
+            </div>
+            <div style="font-size: 0.8rem; margin-bottom: 3px;">
+              <strong>Orario:</strong> ${timeStr} (<strong>${s.ageMinutes} min fa</strong>)
+            </div>
+            <div style="font-size: 0.78rem; color: #475569;">
+              <strong>Distanza da qui:</strong> ${s.distanceKm} km
+            </div>
+          </div>
+        `);
+
+        marker.addTo(this.lightningLayerGroup);
+      });
+    } catch (err) {
+      console.warn('Errore recupero fulmini:', err);
     }
   }
 }

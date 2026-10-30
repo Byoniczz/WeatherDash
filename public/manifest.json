@@ -1,16 +1,21 @@
 {
-  "name": "WeatherDash",
+  "id": "/?source=pwa",
+  "name": "WeatherDash - Stazione Meteo",
   "short_name": "WeatherDash",
-  "description": "Dashboard meteo moderno con radar pioggia, qualità aria e previsioni orarie/settimanali",
+  "description": "Dashboard meteo moderno con radar pioggia in tempo reale, rischio grandine, fulmini live e qualità aria.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#0f172a",
   "theme_color": "#0284c7",
+  "categories": ["weather", "utilities"],
   "icons": [
     {
       "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
+      "sizes": "192x192 512x512 any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ]
 }

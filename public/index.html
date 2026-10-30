@@ -6,8 +6,13 @@
   <title>WeatherDash • Stazione Meteo e Radar</title>
   <meta name="description" content="Dashboard meteo avanzata con radar precipitazioni in tempo reale, qualità dell'aria, previsioni orarie e settimanali.">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/favicon.svg">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0284c7">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="WeatherDash">
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -101,6 +106,21 @@
       <button onclick="document.getElementById('alertBanner').style.display='none'" class="action-btn" style="color: #fca5a5;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
+    </div>
+
+    <!-- BOLLETTINO ALLERTE METEOALARM / PROTEZIONE CIVILE -->
+    <div id="meteoAlarmCard" class="meteoalarm-card" style="display: none;">
+      <div class="meteoalarm-icon-wrap" id="meteoAlarmIcon">🟡</div>
+      <div class="meteoalarm-body">
+        <div class="meteoalarm-top-row">
+          <span class="meteoalarm-badge" id="meteoAlarmBadge">Allerta Gialla</span>
+          <span class="meteoalarm-region" id="meteoAlarmRegion">Piemonte</span>
+          <span class="meteoalarm-source">🛡️ Bollettino Ufficiale Protezione Civile • MeteoAlarm</span>
+        </div>
+        <div class="meteoalarm-title" id="meteoAlarmTitle">Temporali Forti e Rischio Idrogeologico</div>
+        <div class="meteoalarm-time" id="meteoAlarmTime">Valida da oggi</div>
+      </div>
+      <button class="meteoalarm-close-btn" onclick="document.getElementById('meteoAlarmCard').style.display='none'" title="Chiudi avviso">×</button>
     </div>
 
     <!-- TOP SECTION: CURRENT HERO + METRICS GRID -->
@@ -349,6 +369,10 @@
             <option value="satellite">🛰️ Satellite Nubi & IR (In Tempo Reale)</option>
             <option value="webcams">📷 Webcam Live della Zona</option>
           </select>
+          <button id="lightningToggleBtn" class="pill-btn active" title="Mostra/Nascondi scariche elettriche (fulmini live) in tempo reale" style="background: rgba(17, 24, 39, 0.85); color: #facc15;">
+            <span>⚡ Fulmini</span>
+            <span id="lightningCountBadge" style="background: rgba(250, 204, 21, 0.2); color: #fef08a; padding: 0.1rem 0.4rem; border-radius: 10px; font-size: 0.72rem; margin-left: 2px;">--</span>
+          </button>
           <select id="basemapSelect" class="pill-btn" style="background: rgba(17, 24, 39, 0.85); outline: none;">
             <option value="dark">Mappa Scura (CARTO)</option>
             <option value="voyager">Mappa Voyager (Colorata)</option>

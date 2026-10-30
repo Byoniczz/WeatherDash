@@ -32,6 +32,64 @@ function setCached(key, data, ttlSeconds) {
   });
 }
 
+// ================= TRACCIATORE FULMINI BLITZORTUNG (MQTT) =================
+let mqtt = null;
+try {
+  mqtt = require('mqtt');
+} catch (e) {
+  console.warn('MQTT non disponibile:', e.message);
+}
+
+const lightningStrikes = []; // Buffer scariche dell'ultima ora
+const MAX_LIGHTNING_AGE_MS = 60 * 60 * 1000; // 60 minuti
+
+function initLightningTracker() {
+  if (!mqtt) return;
+  try {
+    const client = mqtt.connect('mqtt://blitzortung.ha.sed.pl:1883', {
+      reconnectPeriod: 10000,
+      connectTimeout: 10000
+    });
+
+    client.on('connect', () => {
+      console.log('⚡ Connesso al broker Blitzortung Live Lightning (MQTT)!');
+      client.subscribe('blitzortung/1.1/#', { qos: 0 });
+    });
+
+    client.on('message', (topic, message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        if (data.lat !== undefined && data.lon !== undefined) {
+          const strikeTime = data.time ? Math.round(data.time / 1000000) : Date.now();
+          lightningStrikes.push({
+            lat: data.lat,
+            lon: data.lon,
+            time: strikeTime,
+            region: data.region || 0
+          });
+        }
+      } catch (err) {
+        // Ignora pacchetti non validi
+      }
+    });
+
+    client.on('error', (err) => {
+      console.warn('⚡ Errore connessione Blitzortung MQTT:', err.message);
+    });
+
+    // Pulizia periodica ogni minuto per mantenere solo l'ultima ora
+    setInterval(() => {
+      const cutoff = Date.now() - MAX_LIGHTNING_AGE_MS;
+      while (lightningStrikes.length > 0 && lightningStrikes[0].time < cutoff) {
+        lightningStrikes.shift();
+      }
+    }, 60000);
+  } catch (err) {
+    console.warn('Impossibile avviare il tracciatore fulmini:', err.message);
+  }
+}
+initLightningTracker();
+
 // Assicura l'esistenza della cartella e del file data
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -225,7 +283,12 @@ app.post('/api/telegram/briefing', async (req, res) => {
     const aqRes = await fetch(`http://localhost:${PORT}/api/airquality?lat=${loc.lat}&lon=${loc.lon}`);
     const aq = aqRes.ok ? await aqRes.json() : {};
 
-    const briefingText = generateMorningBriefing(loc, weather, aq, settings);
+    let alerts = null;
+    try {
+      alerts = await getMeteoAlarmAlerts(loc.country, loc.admin1);
+    } catch (e) {}
+
+    const briefingText = generateMorningBriefing(loc, weather, aq, settings, alerts);
 
     const tgUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
     const response = await fetch(tgUrl, {
@@ -784,7 +847,7 @@ function calculateSportSimple(hourly) {
 }
 
 // Generatore del Morning Briefing Telegram completo
-function generateMorningBriefing(loc, weather, aq, settings) {
+function generateMorningBriefing(loc, weather, aq, settings, alerts = null) {
   const current = weather.current || {};
   const daily = weather.daily || {};
   const hourly = weather.hourly || {};
@@ -843,6 +906,14 @@ function generateMorningBriefing(loc, weather, aq, settings) {
   else if (tMin < 11 && tMax >= 18) outfit = `Vestiti a strati! Fresco al mattino (${tMin}°C) e mite di giorno (${tMax}°C) 👕🧥`;
   else if (tMax >= 24) outfit = 'T-shirt maniche corte e occhiali da sole 🕶️';
 
+  // Allerta Ufficiale Protezione Civile (MeteoAlarm)
+  let alertText = '';
+  if (alerts && alerts.hasAlert && alerts.alerts && alerts.alerts.length > 0) {
+    const topAlert = alerts.alerts[0];
+    const icon = topAlert.level === 'red' ? '🔴' : topAlert.level === 'orange' ? '🟠' : '🟡';
+    alertText = `\n${icon} *ALLERTA METEO*: *${topAlert.levelText}* per _${topAlert.eventIt}_!`;
+  }
+
   return `☕ *BUONGIORNO DA WEATHERDASH!*
 📅 *${capitalizedDate}*
 📍 *${locName}*
@@ -850,7 +921,7 @@ function generateMorningBriefing(loc, weather, aq, settings) {
 🌤️ *Meteo di Oggi*: ${wmo}
 🌡️ *Temperature*: Min *${tMin}°C* • Max *${tMax}°C* (Attuale: ${currentTemp}°C)
 ☂️ *Ombrello*: ${umbrellaAdvice}
-🧊 *Rischio Grandine*: ${hailText}
+🧊 *Rischio Grandine*: ${hailText}${alertText}
 ──────────────
 💡 *INDICI DELLA GIORNATA*:
 🧺 *Bucato*: ${laundry}
@@ -972,6 +1043,177 @@ app.get('/api/webcams', async (req, res) => {
   res.json(result);
 });
 
+// ================= ALLERTE UFFICIALI METEOALARM =================
+async function getMeteoAlarmAlerts(countryCode, regionName) {
+  const c = (countryCode || 'IT').toLowerCase();
+  const countryFeedMap = {
+    it: 'italy',
+    italia: 'italy',
+    es: 'spain',
+    spagna: 'spain',
+    fr: 'france',
+    francia: 'france',
+    de: 'germany',
+    germania: 'germany',
+    at: 'austria',
+    ch: 'switzerland',
+    svizzera: 'switzerland'
+  };
+  const feedCountry = countryFeedMap[c] || 'italy';
+  const cacheKey = `meteoalarm_${feedCountry}`;
+  let feedXml = getCached(cacheKey);
+
+  if (!feedXml) {
+    try {
+      const url = `https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-${feedCountry}`;
+      const response = await fetch(url, { headers: { 'User-Agent': 'WeatherDash/1.1' } });
+      if (response.ok) {
+        feedXml = await response.text();
+        setCached(cacheKey, feedXml, 900); // Cache 15 minuti
+      }
+    } catch (err) {
+      console.warn('Errore fetch MeteoAlarm:', err.message);
+    }
+  }
+
+  if (!feedXml) return { hasAlert: false, alerts: [] };
+
+  const entries = feedXml.split('<entry>').slice(1);
+  const regionLower = (regionName || '').toLowerCase().trim();
+  const matchedAlerts = [];
+
+  for (const entry of entries) {
+    const getTag = tag => {
+      const m = entry.match(new RegExp('<(?:cap:)?' + tag + '[^>]*>([\\s\\S]*?)<\\/(?:cap:)?' + tag + '>'));
+      return m ? m[1].trim() : '';
+    };
+
+    const area = getTag('areaDesc');
+    const event = getTag('event');
+    const severity = getTag('severity');
+    const onset = getTag('onset');
+    const expires = getTag('expires');
+
+    const areaLower = area.toLowerCase();
+    const isMatch = !regionLower || areaLower.includes(regionLower) || regionLower.includes(areaLower);
+
+    if (isMatch && event) {
+      let level = 'yellow';
+      let levelText = 'Allerta Gialla';
+      const eventLower = event.toLowerCase();
+      if (eventLower.includes('red') || severity.toLowerCase() === 'extreme') {
+        level = 'red';
+        levelText = 'Allerta Rossa';
+      } else if (eventLower.includes('orange') || severity.toLowerCase() === 'severe') {
+        level = 'orange';
+        levelText = 'Allerta Arancione';
+      }
+
+      let eventIt = event;
+      if (eventLower.includes('thunderstorm')) eventIt = 'Temporali Forti e Grandine';
+      else if (eventLower.includes('rain')) eventIt = 'Rischio Idrogeologico / Piogge Intense';
+      else if (eventLower.includes('wind')) eventIt = 'Vento Forte e Raffiche di Burrasca';
+      else if (eventLower.includes('snow') || eventLower.includes('ice')) eventIt = 'Neve e Ghiaccio';
+      else if (eventLower.includes('high temperature')) eventIt = 'Ondata di Calore Estremo';
+      else if (eventLower.includes('low temperature')) eventIt = 'Gelo Intenso';
+      else if (eventLower.includes('fog')) eventIt = 'Nebbia Fitta';
+      else if (eventLower.includes('coastal')) eventIt = 'Mareggiata';
+
+      matchedAlerts.push({
+        area,
+        event,
+        eventIt,
+        level,
+        levelText,
+        severity,
+        onset,
+        expires
+      });
+    }
+  }
+
+  return {
+    hasAlert: matchedAlerts.length > 0,
+    region: regionName || 'Tutte',
+    count: matchedAlerts.length,
+    alerts: matchedAlerts
+  };
+}
+
+// Endpoint Allerte Ufficiali MeteoAlarm / Protezione Civile
+app.get('/api/alerts', async (req, res) => {
+  const { lat, lon, country, admin1 } = req.query;
+  try {
+    let targetCountry = country;
+    let targetRegion = admin1;
+
+    if (!targetRegion && lat && lon) {
+      const revUrl = `http://localhost:${PORT}/api/reverse?lat=${lat}&lon=${lon}`;
+      const revRes = await fetch(revUrl);
+      if (revRes.ok) {
+        const revData = await revRes.json();
+        targetCountry = targetCountry || revData.country || 'Italia';
+        targetRegion = targetRegion || revData.admin1 || '';
+      }
+    }
+
+    const result = await getMeteoAlarmAlerts(targetCountry, targetRegion);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Errore lettura allerte: ' + err.message });
+  }
+});
+
+// Endpoint Scariche Elettriche / Fulmini Live (Blitzortung MQTT)
+app.get('/api/lightning', (req, res) => {
+  const lat = parseFloat(req.query.lat);
+  const lon = parseFloat(req.query.lon);
+  const radius = parseFloat(req.query.radius) || 120; // km
+
+  if (isNaN(lat) || isNaN(lon)) {
+    return res.status(400).json({ error: 'Parametri lat e lon obbligatori' });
+  }
+
+  const now = Date.now();
+  const nearby = [];
+  let closestDist = Infinity;
+  let count15m = 0;
+  let count30m = 0;
+
+  for (let i = lightningStrikes.length - 1; i >= 0; i--) {
+    const s = lightningStrikes[i];
+    const ageMs = now - s.time;
+    if (ageMs > MAX_LIGHTNING_AGE_MS) continue;
+
+    const dist = getDistanceFromLatLonInKm(lat, lon, s.lat, s.lon);
+    if (dist <= radius) {
+      const ageMinutes = Math.round(ageMs / 60000);
+      if (dist < closestDist) closestDist = dist;
+      if (ageMinutes <= 15) count15m++;
+      if (ageMinutes <= 30) count30m++;
+
+      nearby.push({
+        lat: Math.round(s.lat * 10000) / 10000,
+        lon: Math.round(s.lon * 10000) / 10000,
+        time: s.time,
+        ageMinutes,
+        distanceKm: Math.round(dist * 10) / 10
+      });
+
+      if (nearby.length >= 200) break;
+    }
+  }
+
+  res.json({
+    totalInRadius: nearby.length,
+    count15m,
+    count30m,
+    closestDistanceKm: closestDist < Infinity ? Math.round(closestDist * 10) / 10 : null,
+    radiusKm: radius,
+    strikes: nearby
+  });
+});
+
 // Home Assistant REST Sensor API Endpoint
 app.get('/api/ha/sensors', async (req, res) => {
   const favs = readFavorites();
@@ -1008,6 +1250,35 @@ app.get('/api/ha/sensors', async (req, res) => {
       }
     }
 
+    // Calcolo fulmini vicini (entro 50 km negli ultimi 30 min)
+    let lightningNearby = 0;
+    let closestLightningDist = null;
+    const nowMs = Date.now();
+    for (let i = lightningStrikes.length - 1; i >= 0; i--) {
+      const s = lightningStrikes[i];
+      if (nowMs - s.time > 30 * 60 * 1000) continue;
+      const dist = getDistanceFromLatLonInKm(def.lat, def.lon, s.lat, s.lon);
+      if (dist <= 50) {
+        lightningNearby++;
+        if (closestLightningDist === null || dist < closestLightningDist) {
+          closestLightningDist = Math.round(dist * 10) / 10;
+        }
+      }
+    }
+
+    // Allerte Meteo Ufficiali Protezione Civile (MeteoAlarm)
+    let weatherAlertActive = false;
+    let weatherAlertEvent = null;
+    let weatherAlertLevel = null;
+    try {
+      const alertData = await getMeteoAlarmAlerts(def.country, def.admin1);
+      if (alertData && alertData.hasAlert && alertData.alerts.length > 0) {
+        weatherAlertActive = true;
+        weatherAlertEvent = alertData.alerts[0].eventIt;
+        weatherAlertLevel = alertData.alerts[0].level;
+      }
+    } catch (e) {}
+
     res.json({
       location: def.label || def.name,
       latitude: def.lat,
@@ -1030,6 +1301,11 @@ app.get('/api/ha/sensors', async (req, res) => {
       hail_alert_active: hail.alertActive,
       hail_peak_time: hail.peakHour,
       hail_peak_cape: hail.peakCape,
+      lightning_count_nearby_30m: lightningNearby,
+      lightning_closest_distance_km: closestLightningDist,
+      weather_alert_active: weatherAlertActive,
+      weather_alert_event: weatherAlertEvent,
+      weather_alert_level: weatherAlertLevel,
       aqi_european: aq.current?.european_aqi || null,
       pm2_5: aq.current?.pm2_5 || null,
       pm10: aq.current?.pm10 || null,
@@ -1128,7 +1404,12 @@ setInterval(async () => {
       const aqRes = await fetch(`http://localhost:${PORT}/api/airquality?lat=${def.lat}&lon=${def.lon}`);
       const aq = aqRes.ok ? await aqRes.json() : {};
 
-      const briefingText = generateMorningBriefing(def, weather, aq, settings);
+      let alerts = null;
+      try {
+        alerts = await getMeteoAlarmAlerts(def.country, def.admin1);
+      } catch (e) {}
+
+      const briefingText = generateMorningBriefing(def, weather, aq, settings, alerts);
       await fetch(`https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

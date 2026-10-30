@@ -38,6 +38,22 @@ Previsioni orarie e a 14 giorni, radar pioggia in tempo reale, rischio grandine 
 - **Supporto Windy Webcams v3**: visualizza le webcam mondiali semplicemente inserendo la tua chiave gratuita nelle impostazioni.
 - **Mappa interattiva & Galleria**: marker dedicati sulla mappa radar con anteprima dell'ultimo scatto e galleria a scorrimento rapido in basso con zoom al clic.
 
+### ⚡ Radar Fulmini Live in Tempo Reale (Blitzortung MQTT)
+- **Rilevamento istantaneo delle scariche elettriche**: collegato in tempo reale al broker MQTT della rete di rilevamento mondiale Blitzortung.
+- **Marker pulsanti & Codice colore per età della scarica**: visualizza i fulmini caduti negli ultimi 60 minuti con gradiente cromatico (giallo brillante < 5 min, arancione 5-15 min, rosso 15-30 min, viola 30-60 min).
+- **Popup dettagliato**: distanza in km dalla tua posizione e timestamp esatto del fulmine.
+- **Pulsante on/off dedicato**: con contatore live di scariche attive nel raggio di 200 km.
+
+### 🚨 Bollettino Allerte Ufficiali Protezione Civile (MeteoAlarm)
+- **Feed ufficiale europeo MeteoAlarm**: integra gli avvisi di allerta meteo emessi dai centri nazionali e dalla Protezione Civile italiana.
+- **Badge codice colore ufficiale**: Allerta Gialla 🟡, Arancione 🟠 o Rossa 🔴 per temporali forti, grandine, nubifragi, vento di burrasca, neve o ondate di calore.
+- **Validità oraria**: mostra orario di inizio e termine della criticità e la regione di riferimento.
+- **Integrazione Telegram**: gli avvisi di allerta meteo attiva vengono inclusi direttamente nel Morning Briefing.
+
+### 📱 PWA Nativa ("Installa come App su iPhone, Android & PC")
+- **Installabile come app nativa**: grazie al Service Worker e al Web App Manifest, puoi installarla con 1 clic su smartphone ("Aggiungi a Schermata Home") senza le barre del browser.
+- **Modalità Standalone**: si apre fluida a tutto schermo con icona dedicata, perfetta anche per vecchi tablet dedicati a display meteo da parete.
+
 ### 🧊 Previsione Rischio Grandine & Temporali Severi
 - **Analisi termodinamica avanzata**: calcolo automatico su parametri fisici della colonna d'aria (**CAPE** - *Convective Available Potential Energy* e **Lifted Index**).
 - **Classificazione del rischio a 4 livelli**: Basso, Moderato, Elevato, Estremo.
