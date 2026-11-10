@@ -9,7 +9,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - CARTO_API_KEY=cb1_4q2e_1_a29519003be17de1cdc0c026
+      - CARTO_API_KEY=${CARTO_API_KEY:-}
     volumes:
       # Cartella fisica sul tuo server host per accedere e recuperare direttamente config e file JSON
       - ${DATA_PATH:-/docker/weatherdash}:/app/data

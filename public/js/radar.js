@@ -20,7 +20,7 @@ class WeatherRadar {
     this.layerType = 'radar'; // 'radar', 'satellite', o 'future'
     this.currentLat = 41.8919;
     this.currentLon = 12.5113;
-    this.cartoApiKey = 'cb1_4q2e_1_a29519003be17de1cdc0c026';
+    this.cartoApiKey = '';
 
     // Base maps
     this.baseLayers = {};
@@ -43,9 +43,28 @@ class WeatherRadar {
       const res = await fetch('/api/config');
       if (res.ok) {
         const cfg = await res.json();
-        if (cfg.cartoApiKey) this.cartoApiKey = cfg.cartoApiKey;
+        this.cartoApiKey = cfg.cartoApiKey || '';
+        this.updateCartoLayers();
       }
     } catch (e) {}
+  }
+
+  setCartoApiKey(key) {
+    this.cartoApiKey = (key || '').trim();
+    this.updateCartoLayers();
+  }
+
+  updateCartoLayers() {
+    const cartoParam = this.cartoApiKey ? `?key=${encodeURIComponent(this.cartoApiKey)}` : '';
+    if (this.baseLayers.dark) {
+      this.baseLayers.dark.setUrl(`https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png${cartoParam}`);
+    }
+    if (this.baseLayers.light) {
+      this.baseLayers.light.setUrl(`https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png${cartoParam}`);
+    }
+    if (this.baseLayers.voyager) {
+      this.baseLayers.voyager.setUrl(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoParam}`);
+    }
   }
 
   init(lat = 41.8919, lon = 12.5113, zoom = 6, label = '') {
@@ -67,9 +86,10 @@ class WeatherRadar {
     });
 
     const cartoAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+    const cartoParam = this.cartoApiKey ? `?key=${encodeURIComponent(this.cartoApiKey)}` : '';
 
-    // Layer CartoDB Dark (con API Key autorizzata senza watermark)
-    this.baseLayers.dark = L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key=${this.cartoApiKey}`, {
+    // Layer CartoDB Dark (con eventuale API Key personalizzata)
+    this.baseLayers.dark = L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png${cartoParam}`, {
       maxZoom: 18,
       subdomains: 'abcd',
       attribution: cartoAttr,
@@ -77,7 +97,7 @@ class WeatherRadar {
     });
 
     // Layer CartoDB Light (Positron)
-    this.baseLayers.light = L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png?key=${this.cartoApiKey}`, {
+    this.baseLayers.light = L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png${cartoParam}`, {
       maxZoom: 18,
       subdomains: 'abcd',
       attribution: cartoAttr,
@@ -85,7 +105,7 @@ class WeatherRadar {
     });
 
     // Layer CartoDB Voyager (Colorata)
-    this.baseLayers.voyager = L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${this.cartoApiKey}`, {
+    this.baseLayers.voyager = L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${cartoParam}`, {
       maxZoom: 18,
       subdomains: 'abcd',
       attribution: cartoAttr,

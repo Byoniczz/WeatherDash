@@ -140,6 +140,7 @@ const defaultSettings = {
   telegramBriefingTime: '07:30',
   solarKwp: 4.0,
   windyWebcamApiKey: process.env.WINDY_API_KEY || '',
+  cartoApiKey: process.env.CARTO_API_KEY || '',
   canvasEffectsEnabled: true
 };
 
@@ -200,8 +201,9 @@ app.get('/api/health', (req, res) => {
 
 // Configurazione pubblica per il frontend (es. Basemaps API key)
 app.get('/api/config', (req, res) => {
+  const settings = readSettings();
   res.json({
-    cartoApiKey: process.env.CARTO_API_KEY || 'cb1_4q2e_1_a29519003be17de1cdc0c026'
+    cartoApiKey: settings.cartoApiKey || process.env.CARTO_API_KEY || ''
   });
 });
 

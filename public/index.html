@@ -755,6 +755,22 @@
           </div>
         </div>
 
+        <!-- CARTO Basemaps API Key Section -->
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 0.85rem;">
+          <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem; color: #a78bfa; display: flex; align-items: center; gap: 0.4rem;">
+            <span>🗺️ Chiave API CARTO Basemaps (Opzionale)</span>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+            Inserisci la tua chiave API CARTO per le mappe vettoriali (Dark Matter, Positron Light, Voyager). Se non impostata, puoi usare le mappe gratuite OpenStreetMap e Satellite.
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+            <input type="text" id="settingCartoKey" placeholder="es. Inserisci la tua API Key CARTO..." style="width: 100%; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--card-border); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;">
+            <div style="font-size: 0.72rem; color: var(--text-secondary);">
+              Disponibile dal tuo account su <a href="https://carto.com/" target="_blank" rel="noopener" style="color: var(--accent);">carto.com</a>. Puoi impostarla anche da file .env o variabile <code>CARTO_API_KEY</code>.
+            </div>
+          </div>
+        </div>
+
         <!-- Fotovoltaico Section -->
         <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 0.85rem;">
           <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem; color: #fbbf24; display: flex; align-items: center; gap: 0.4rem;">

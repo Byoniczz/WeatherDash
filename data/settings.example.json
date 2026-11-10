@@ -7,5 +7,6 @@
   "telegramBriefingTime": "07:30",
   "solarKwp": 4.0,
   "windyWebcamApiKey": "",
+  "cartoApiKey": "",
   "canvasEffectsEnabled": true
 }

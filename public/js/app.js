@@ -741,6 +741,7 @@ class WeatherApp {
     const briefingTimeInput = document.getElementById('settingTgBriefingTime');
     const solarInput = document.getElementById('settingSolarKwp');
     const windyKeyInput = document.getElementById('settingWindyKey');
+    const cartoKeyInput = document.getElementById('settingCartoKey');
     const feedback = document.getElementById('tgTestFeedback');
     const briefingFeedback = document.getElementById('tgBriefingFeedback');
 
@@ -752,6 +753,7 @@ class WeatherApp {
     if (briefingTimeInput) briefingTimeInput.value = this.settings.telegramBriefingTime || '07:30';
     if (solarInput) solarInput.value = this.settings.solarKwp || 4.0;
     if (windyKeyInput) windyKeyInput.value = this.settings.windyWebcamApiKey || '';
+    if (cartoKeyInput) cartoKeyInput.value = this.settings.cartoApiKey || '';
     if (feedback) {
       feedback.style.display = 'none';
       feedback.textContent = '';
@@ -781,6 +783,7 @@ class WeatherApp {
     const briefingTimeInput = document.getElementById('settingTgBriefingTime');
     const solarInput = document.getElementById('settingSolarKwp');
     const windyKeyInput = document.getElementById('settingWindyKey');
+    const cartoKeyInput = document.getElementById('settingCartoKey');
     const saveBtn = document.getElementById('saveSettingsBtn');
 
     const updated = {
@@ -791,7 +794,8 @@ class WeatherApp {
       telegramDailyDigest: briefingCheck ? briefingCheck.checked : true,
       telegramBriefingTime: briefingTimeInput ? briefingTimeInput.value : '07:30',
       solarKwp: solarInput ? parseFloat(solarInput.value) || 4.0 : 4.0,
-      windyWebcamApiKey: windyKeyInput ? windyKeyInput.value.trim() : ''
+      windyWebcamApiKey: windyKeyInput ? windyKeyInput.value.trim() : '',
+      cartoApiKey: cartoKeyInput ? cartoKeyInput.value.trim() : ''
     };
 
     if (saveBtn) {
@@ -809,6 +813,11 @@ class WeatherApp {
       if (res.ok) {
         this.settings = await res.json();
         if (saveBtn) saveBtn.textContent = '✓ Salvato!';
+
+        // Aggiorna subito la chiave CARTO nel radar Leaflet se inizializzato
+        if (this.radar && typeof this.radar.setCartoApiKey === 'function') {
+          this.radar.setCartoApiKey(this.settings.cartoApiKey);
+        }
 
         // Aggiorna subito i calcoli fotovoltaici nella UI
         if (this.weatherData && typeof renderLifeIndices === 'function') {
